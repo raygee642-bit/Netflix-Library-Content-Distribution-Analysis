@@ -19,7 +19,8 @@ This project analyzes Netflix’s content library to identify trends in genre di
     *   **Business Impact:** High reliance on new releases increases capital expenditure on original production. A stronger "catalog" of classics could provide a cost-effective way to maintain library depth.
 
 
-### 🎨 Tools Used : Data Source (Kagglehub), Python, Google Colab, Microsoft Power Point
+### 🎨 Tools Used 
+Data Source (Kagglehub), Python, Google Colab, Microsoft Power Point
 
 
 ### 🛠️ Methodology
