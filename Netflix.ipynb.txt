@@ -1,0 +1,353 @@
+from ipywidgets import Layout
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import scipy.stats as stats
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+#filter warnings
+import warnings
+warnings.filterwarnings('ignore')
+
+#set seaborn Layout
+sns.set_theme(style="whitegrid")
+
+
+import kagglehub
+
+# Download latest version
+path = kagglehub.dataset_download("shivamb/netflix-shows")
+
+print("Path to dataset files:", path)
+
+df = pd.read_csv('/kaggle/input/netflix-shows/netflix_titles.csv')
+df.head(5)
+
+Popular type by country,
+popular realease year,
+country that contribute more to netflix,
+what is the avg. duration.
+
+df.dtypes
+
+date needs to be datetype, duration = int
+
+df.info()
+
+director, cast, country, date_added, rating, duration, has null values.
+
+df.shape
+
+# check sum of missing values per row
+df.isnull().sum()
+
+to check the percenatge isnull
+
+(df.isnull().sum()/len(df) * 100).round(2)
+
+DEALING WITH MISSING VALUES
+MCAR- Missing completely at random
+MAR- Missing at random
+MNAR- Missing Not at random
+
+*   replace missing director with "Unknown"
+*   replace missing cast with "Not Available"
+*   replace msssing rating "Not rated"
+
+
+
+
+
+
+
+
+
+# describe the numerical column
+df.describe(include=np.number).transpose()
+
+#descibe categorical column
+#df.describe(include=object).transpose()
+df.describe(exclude=np.number).transpose()
+
+The above brief already shows that the most common director is Rajiv Chilaka, his name occurred in 19 times.
+
+it also shows that the United states mostly used netflix.
+
+it also shows people prefer David Attenborough movies.
+
+and the pp watched it the most in the year 2020, when there was coronavirus.
+
+
+
+Data cleaning
+
+
+
+NA- not available
+
+NAN-Not a number
+
+NAT-Not a time
+
+# Data cleaning
+# fill missing values
+df['director'].fillna('Unknown', inplace=True)
+df['cast'].fillna('Not Available', inplace=True)
+df['country'].fillna('Unknown', inplace=True)
+df['rating'].fillna('Not rated', inplace=True) # Not rated could be the movie can be seen by anybody
+df['date_added'].fillna('Not Available', inplace=True)
+df['duration'].fillna('Unknown', inplace=True)
+df.head(5)
+
+
+df.info()
+
+Treating missing date
+
+#convert date_added to date time
+df['date_added'] = pd.to_datetime(df['date_added'], errors='coerce')
+df.head(5)
+
+df['date_added'].dtype
+
+df.info()
+
+date by year, month, day, quarter.
+
+# date_added to year and month column
+df['year_added'] = df['date_added'].dt.year
+df['month_added'] = df['date_added'].dt.month_name()
+df['quarter_added'] = df['date_added'].dt.quarter
+df['day_added'] = df['date_added'].dt.day_name()
+df.head(5)
+
+latency: to compare year the movie was produced and year released (when it was uploaded)
+
+# calculate latency between year_added and release_year
+df['latency'] = df['year_added'] - df['release_year']
+df.head(5)
+
+
+You can build a data wrangler
+
+# Show top 10 directors
+df['director'].value_counts().head(10)
+
+Insights
+
+* The most popular known director is Rajiv Chilaka
+
+
+* some movies in the catalogue are gaining traction but we don't know you directed them. (you can plot and check the avg. duration of the unknown director, and it is likely you gain insight and suggest to the company to identify those directors and neigotiate with them if pp watch their movies more and make more money for the company.)
+
+
+# top 10 countries
+df['country'].value_counts().head(10)
+
+Insights
+
+* most of the movies are too centred on United states, while mexico is lagging.
+
+# Total types of shows and movies
+df['type'].value_counts()
+
+
+Insigths
+
+* increase the numbers of TV Shows
+
+Regular Expression : Aka Regex Cleaning
+
+# convert my duration to str
+df['duration'] = df['duration'].astype(str)
+
+# extract the minutes with regex
+df['duration_min'] = df['duration'].str.extract(r'(\d+)\s*min', expand=False)
+df['duration_min'] = pd.to_numeric(df['duration_min'], errors='coerce')
+
+# extract the season in seasons with regex
+df['duration_seasons'] = df['duration'].str.extract(r'(\d+)\s*Season', expand=False)
+df['duration_seasons'] = pd.to_numeric(df['duration_seasons'], errors='coerce')
+df.head()
+
+# Show average duration for movies and average duration for seasons
+df.groupby('type')[['duration_min', 'duration_seasons']].mean()
+
+# Group movie by duration min
+df.groupby('type')['duration_min'].mean().filter(like='Movie').round(2)
+
+# Group TV Show by duration seasons
+df.groupby('type')['duration_seasons'].mean().filter(like='TV Show').round(2)
+
+# create a column called df_genres (show_id, title, listed_in), split at comma, count the number of elements
+df_genres = df[['show_id', 'title', 'listed_in']].copy()
+df_genres['listed_in'] = df_genres['listed_in'].fillna('')
+df_genres['genres_list'] = df_genres['listed_in'].apply(lambda s: list(g.strip() for g in s.split(',') if g.strip()))
+df_genres_exploded = df_genres.explode('genres_list')
+genre_counts = df_genres_exploded['genres_list'].value_counts().rename_axis('genre').reset_index(name='counts')
+print(genre_counts.head(10))
+
+It shows that International movies are the ones top the catalog.
+
+df_genres = df[['show_id', 'title', 'listed_in']].copy()
+df_genres['listed_in'] = df_genres['listed_in'].fillna('')
+df_genres['genres_list'] = df_genres['listed_in'].apply(lambda s: list(g.strip() for g in s.split(',') if g.strip()))
+df_genres_exploded = df_genres.explode('genres_list')
+genre_counts = df_genres_exploded['genres_list'].value_counts().rename_axis('genre').reset_index(name='counts')
+print(genre_counts.tail(10))
+
+It shows TV Shows ar the least on the catalog.
+
+* Bar chart is for categorical variables (top 10, top bottom, top countries per movie and per tv shows). categorical, bin, genre will be on the x-axis while the continous variable(numbers) will be on the y-axis.
+* Histogram for continous variables (distribution of duration_min and distribution for season).
+* Line chart is for trend in time.
+
+# show the top 10 genres in df_genre wit seaborn bar chart
+print('Top 10 Genre in the Catalog')
+sns.barplot(x='counts', y='genre', data=genre_counts.head(10))  # sns.barplot
+plt.show()
+
+# show bottom 10 genre in the catalog using title
+sns.barplot(x='counts', y='genre', data=genre_counts.tail(10))  # sns.barplot
+plt.title('Bottom 10 genre in the Catalog')
+plt.show()
+
+# to change the color of the bar by setting palette
+print('Top 10 Genre in the Catalog')
+sns.barplot(x='counts', y='genre', data=genre_counts.head(10), palette= 'viridis') # sns.barplot
+
+sns.barplot(x='counts', y='genre', data=genre_counts.tail(10), palette= 'viridis_r')   # sns.barplot
+plt.title('Bottom 10 genre in the Catalog')
+plt.show()
+
+# Release-year Distribution and counts by type
+release_counts = df['release_year'].value_counts().sort_index().reset_index(name='count')
+plt.figure(figsize=(12, 6))
+plt.plot(release_counts['release_year'], release_counts['count'], marker='o')
+plt.title('Release Year Distribution')
+plt.xlabel('Release Year')
+plt.ylabel('Count')
+plt.tight_layout()
+plt.show()
+
+Year with highest release movie in the catalog is 2017.
+
+# latency to number of movies
+release_counts = df['latency'].value_counts().sort_index().reset_index(name='count')
+plt.figure(figsize=(12, 6))
+plt.plot(release_counts['latency'], release_counts['count'], marker='o')
+plt.title('Latency Distribution')
+plt.xlabel('latency')
+plt.ylabel('Count')
+plt.tight_layout()
+plt.show()
+
+# ============================================
+# EXPORT ALL CHARTS TO PDF
+# ============================================
+
+import matplotlib.pyplot as plt
+import matplotlib.backends.backend_pdf as pdf_backend
+from google.colab import files
+import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
+
+# Create PDF file
+pdf_path = "/content/Netflix_Analysis_Charts.pdf"
+pdf = pdf_backend.PdfPages(pdf_path)
+
+# ── CHART 1: Top 10 Genres ──────────────────
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.barplot(x='counts', y='genre', data=genre_counts.head(10), palette='viridis', ax=ax)
+ax.set_title('Top 10 Genres in the Catalog', fontsize=14, fontweight='bold')
+ax.set_xlabel('Count')
+ax.set_ylabel('Genre')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CHART 2: Bottom 10 Genres ───────────────
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.barplot(x='counts', y='genre', data=genre_counts.tail(10), palette='viridis_r', ax=ax)
+ax.set_title('Bottom 10 Genres in the Catalog', fontsize=14, fontweight='bold')
+ax.set_xlabel('Count')
+ax.set_ylabel('Genre')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CHART 3: Release Year Distribution ──────
+release_counts = df['release_year'].value_counts().sort_index().reset_index(name='count')
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.plot(release_counts['release_year'], release_counts['count'], marker='o', color='steelblue')
+ax.set_title('Release Year Distribution', fontsize=14, fontweight='bold')
+ax.set_xlabel('Release Year')
+ax.set_ylabel('Count')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CHART 4: Latency Distribution ───────────
+latency_counts = df['latency'].value_counts().sort_index().reset_index(name='count')
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.plot(latency_counts['latency'], latency_counts['count'], marker='o', color='coral')
+ax.set_title('Latency Distribution', fontsize=14, fontweight='bold')
+ax.set_xlabel('Latency (Years)')
+ax.set_ylabel('Count')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CHART 5: Top 10 Directors ───────────────
+fig, ax = plt.subplots(figsize=(10, 6))
+director_counts = df['director'].value_counts().head(10)
+sns.barplot(x=director_counts.values, y=director_counts.index, palette='magma', ax=ax)
+ax.set_title('Top 10 Directors on Netflix', fontsize=14, fontweight='bold')
+ax.set_xlabel('Count')
+ax.set_ylabel('Director')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CHART 6: Top 10 Countries ───────────────
+fig, ax = plt.subplots(figsize=(10, 6))
+country_counts = df['country'].value_counts().head(10)
+sns.barplot(x=country_counts.values, y=country_counts.index, palette='coolwarm', ax=ax)
+ax.set_title('Top 10 Countries on Netflix', fontsize=14, fontweight='bold')
+ax.set_xlabel('Count')
+ax.set_ylabel('Country')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CHART 7: Movies vs TV Shows ─────────────
+fig, ax = plt.subplots(figsize=(7, 5))
+type_counts = df['type'].value_counts()
+sns.barplot(x=type_counts.index, y=type_counts.values, palette='Set2', ax=ax)
+ax.set_title('Movies vs TV Shows on Netflix', fontsize=14, fontweight='bold')
+ax.set_xlabel('Type')
+ax.set_ylabel('Count')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CHART 8: Duration Distribution (Movies) ─
+fig, ax = plt.subplots(figsize=(10, 6))
+movie_duration = df[df['type'] == 'Movie']['duration_min'].dropna()
+ax.hist(movie_duration, bins=30, color='steelblue', edgecolor='white')
+ax.set_title('Distribution of Movie Duration (Minutes)', fontsize=14, fontweight='bold')
+ax.set_xlabel('Duration (Minutes)')
+ax.set_ylabel('Count')
+plt.tight_layout()
+pdf.savefig(fig)
+plt.close()
+
+# ── CLOSE & DOWNLOAD PDF ─────────────────────
+pdf.close()
+print("✅ All charts exported successfully!")
+print("📥 Downloading Netflix_Analysis_Charts.pdf...")
+files.download(pdf_path)
